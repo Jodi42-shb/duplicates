@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Version=1.0
+Name=Duplicate Analyzer
+Comment=Find and safely clean up identical files using MD5 hashes
+Exec=/home/shobhit/Apps/duplicates/target/release/duplicates
+Icon=edit-delete
+Terminal=false
+Categories=Utility;System;
