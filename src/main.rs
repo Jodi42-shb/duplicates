@@ -62,17 +62,22 @@ impl GuiApp {
             target_path: std::env::current_dir().unwrap_or_else(|_| PathBuf::from(".")),
             duplicates: Arc::new(Mutex::new(Vec::new())),
             is_scanning: Arc::new(Mutex::new(false)),
-            status_msg: "Ready.".to_string(), // Cleaned up the stray duplicate field here
+            status_msg: "Ready.".to_string(),
         }
     }
 }
+
 impl eframe::App for GuiApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         let scanning = *self.is_scanning.lock().unwrap();
+        let has_duplicates = {
+            let dups = self.duplicates.lock().unwrap();
+            dups.iter().any(|item| item.status == "Pending")
+        };
 
         egui::TopBottomPanel::top("top_layout").show(ctx, |ui| {
             ui.vertical_centered(|ui| {
-                ui.heading("📊 Content-Hash Duplicate Cleanup Tool Engine");
+                ui.heading("📊 Cryptographic Duplicate Cleanup Engine");
             });
             ui.add_space(8.0);
 
@@ -86,10 +91,39 @@ impl eframe::App for GuiApp {
                     }
                 }
 
-                if ui.add_enabled(!scanning, egui::Button::new("🔍 Analyze Targets")).clicked() {
+                if ui.add_enabled(!scanning, egui::Button::new("🔍 Analyze")).clicked() {
                     *self.is_scanning.lock().unwrap() = true;
-                    self.status_msg = "Running cryptographic inspection loop engine setup metrics verification system execution run profiles loop processing metadata map generation active arrays analysis loop context...".to_string();
+                    self.status_msg = "Scanning directory tree layout...".to_string();
                     run_scan_async(self.target_path.clone(), self.duplicates.clone(), self.is_scanning.clone(), ctx.clone());
+                }
+
+                ui.separator();
+
+                    // --- Bulk Actions Layout ---
+                    let trash_all_btn = egui::Button::new("🗑 Trash All Pending"); // Drop the .text_style() modifier
+                    if ui.add_enabled(has_duplicates && !scanning, trash_all_btn).clicked() {                // --- Bulk Actions Layout ---
+                    let mut dups = self.duplicates.lock().unwrap();
+                    let mut count = 0;
+                    for item in dups.iter_mut().filter(|i| i.status == "Pending") {
+                        if trash::delete(&item.path).is_ok() {
+                            item.status = "Trashed".to_string();
+                            count += 1;
+                        }
+                    }
+                    self.status_msg = format!("Bulk Operation: Successfully moved {} files to system trash.", count);
+                }
+
+                let delete_all_btn = egui::Button::new("💥 Delete All Pending");
+                if ui.add_enabled(has_duplicates && !scanning, delete_all_btn).clicked() {
+                    let mut dups = self.duplicates.lock().unwrap();
+                    let mut count = 0;
+                    for item in dups.iter_mut().filter(|i| i.status == "Pending") {
+                        if fs::remove_file(&item.path).is_ok() {
+                            item.status = "Deleted".to_string();
+                            count += 1;
+                        }
+                    }
+                    self.status_msg = format!("Bulk Operation: Permanently deleted {} duplicate instances.", count);
                 }
             });
             ui.add_space(8.0);
@@ -109,7 +143,7 @@ impl eframe::App for GuiApp {
             let mut dups = self.duplicates.lock().unwrap();
             if dups.is_empty() {
                 ui.centered_and_justified(|ui| {
-                    ui.label("No active duplicate instances found or loaded inside standard layout vectors.");
+                    ui.label("No active duplicate instances found or loaded.");
                 });
             } else {
                 egui::ScrollArea::vertical().show(ui, |ui| {
@@ -117,14 +151,19 @@ impl eframe::App for GuiApp {
                         ui.group(|ui| {
                             ui.horizontal(|ui| {
                                 ui.vertical(|ui| {
-                                    ui.label(format!("Duplicate File: {}", item.path.file_name().unwrap().to_string_lossy()));
+                                    ui.label(format!("Duplicate: {}", item.path.file_name().unwrap().to_string_lossy()));
                                     ui.small(format!("Path: {}", item.path.display()));
                                     ui.small(format!("Matches Original: {}", item.original.display()));
                                 });
 
                                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                                     if item.status != "Pending" {
-                                        ui.colored_label(egui::Color32::from_rgb(120, 240, 120), &item.status);
+                                        let text_color = match item.status.as_str() {
+                                            "Deleted" => egui::Color32::from_rgb(240, 100, 100),
+                                            "Trashed" => egui::Color32::from_rgb(240, 200, 100),
+                                            _ => egui::Color32::from_rgb(120, 240, 120),
+                                        };
+                                        ui.colored_label(text_color, &item.status);
                                     } else {
                                         if ui.button("🗑 Trash").clicked() {
                                             if trash::delete(&item.path).is_ok() { item.status = "Trashed".to_string(); }
@@ -156,12 +195,12 @@ fn main() -> eframe::Result<()> {
     let _guard = rt.enter();
 
     let native_options = eframe::NativeOptions {
-        viewport: egui::ViewportBuilder::default().with_inner_size([750.0, 550.0]),
+        viewport: egui::ViewportBuilder::default().with_inner_size([800.0, 600.0]),
         ..Default::default()
     };
 
     eframe::run_native(
-        "Cryptographic Duplicate Analyzer Engine Layout Setup Profile System Manager",
+        "Duplicate Analyzer Engine",
         native_options,
         Box::new(|cc| Box::new(GuiApp::new(cc)) as Box<dyn eframe::App>),
     )
